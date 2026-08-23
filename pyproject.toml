@@ -1,0 +1,23 @@
+[project]
+name = "decision-systems-lab"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Amirouche.Mesrour", email = "amirouche.mesrour@isatis-canada.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "lightgbm>=4.7.0",
+    "matplotlib>=3.11.1",
+    "mlflow>=1.27.0",
+    "pandas>=3.0.5",
+    "scikit-learn>=1.9.0",
+]
+
+[project.scripts]
+decision-systems-lab = "decision_systems_lab:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
