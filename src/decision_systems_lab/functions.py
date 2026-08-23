@@ -53,3 +53,12 @@ def generate_booking_df():
     df.head()
     return df 
 
+# before the split make the proprocessing function that can help to see the data quality, cleaning
+# add some feature enginnering to add some features for this speficic data.
+#def make_splits(df): ...
+#def train_lgbm(Xtr, ytr, Xva, yva, **params): ...
+#def evaluate(model, X, y) -> dict: ...   # AUC, PR-AUC, Brier
+#def run_experiment(params) -> dict: ...  # assemble et retourne une ligne de tableau
+# make other models and run the experiments. 
+
+
