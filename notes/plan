@@ -1,0 +1,65 @@
+# PLAN DE SPÉCIALISATION v3 — le fond d'abord, les technos ensuite
+## 4h/semaine (extensible 8h) · Manuel + portfolio en colonne vertébrale · Sans certif (choix assumé)
+
+**Positionnement cible** : Senior MLE spécialiste des systèmes de décision — recsys + optimisation + production.
+
+**Le choix stratégique v3** : pas de certification pour l'instant — le fond est transférable, le dialecte (GCP ou autre) se mappe en quelques jours le moment venu. En contrepartie, deux fonctions de la certif sont réassignées :
+- La PREUVE → le portfolio public (montée en importance : c'est ton seul artefact démontrable).
+- La DEADLINE → jalons auto-imposés datés + le sparring hebdo comme rendez-vous fixe. Si les jalons glissent deux fois, on reparle de la certif comme béquille de discipline.
+
+**Colonne vertébrale (à vérifier en dispo actuelle)** :
+- Manuel : *Designing Machine Learning Systems* — Chip Huyen (couvre tes points 1-6, 8, 10-11, dont le continual learning).
+- Cours pratique optionnel : Made With ML (gratuit, pipeline complet en code).
+- Référence A/B : *Trustworthy Online Controlled Experiments* — Kohavi (chap. 1-2, reste en consultation).
+- Le PIC recsys : les écrits appliqués d'Eugene Yan + ton module B.
+
+**Les 3 règles** (inchangées)
+1. UNE priorité par phase. Transversal unique : le sparring, 30 min/sem, non négociable.
+2. Tout code s'écrit à la main d'abord — Claude Code en reviewer, jamais en générateur.
+3. Candidatures en pause jusqu'à portfolio v0.2 linkable — sauf occasion en or via le recruteur.
+
+---
+
+## PHASE 0 — Les 2 semaines avant les vacances (déjà cadrées, inchangées)
+**Semaine 1 (4h30)** : tabulaire aux doigts (notebook v2, courbes d'apprentissage, early stopping ; livrable : TA page « quand quoi ») + calibration (Platt vs isotonic ; livrable : cellule + 5 phrases) + Sparring 1.
+**Semaine 2 (4h30-5h)** : le trio Stay22 — A/B (puissance, MDE), bandits, off-policy + allègement (ONNX/treelite/distillation) ; livrable : TON « experimentation & serving playbook » + inventaire RAG (7 axes, une ligne chacun) + Sparring 2 (les 3 questions du refus, <10 sec chacune).
+*(Le diagnostic PMLE déjà fait reste utile : c'est une carte des thèmes à couvrir, version fond.)*
+
+## PHASE 1 — Le sprint des vacances : CODER
+Priorité unique : le portfolio, aux doigts.
+- v0.1 : repo public + les notebooks Stay22 nettoyés + README « decision engine » (4-6h)
+- v0.2 : couche décision CP-SAT sur le recsys + serving FastAPI optimisé latence (8-10h)
+- Lecture d'accompagnement : DMLS, les chapitres features/training/évaluation en parallèle des briques correspondantes (le manuel éclaire ce que tes mains font, pas l'inverse).
+- Soirées optionnelles, si l'envie y est : le module RAG map (8-10h au total, découpable).
+- **Jalon daté de sortie de sprint : v0.2 linkable.** C'est la première deadline auto-imposée — note la date le premier jour des vacances.
+
+## PHASE 2 — Retour de vacances (4h/sem) : le fond, thème par thème
+Rotation : 1 thème DMLS par semaine (2h lecture-notes) + 1h30 portfolio + 30 min sparring sur le thème de la semaine.
+- v0.3 : pipeline complet — ETL simulé → warehouse (DuckDB/BigQuery) → features point-in-time → scoring → monitoring PSI → ré-entraînement continu (8-10h) — le chapitre continual learning de DMLS en support direct.
+- v0.4 : two-tower simple en PyTorch sur le même dataset, comparé au MF (6-8h) — c'est TON apprentissage PyTorch (point 12), sur ta spécialité, pas sur MNIST.
+- Module RAG map ici s'il n'a pas été fait en soirées de sprint.
+- **Reprise des candidatures dès v0.2 linkable** : 2-3 ciblées/semaine, hors budget des 4h.
+
+## PHASE 3 — La couche agentique + culture
+- v0.5 : LangGraph qui pilote l'engine (ton point 14) → enfin inscriptible au CV sans astérisque.
+- PyTorch approfondi si besoin (fast.ai), ML vs DL en jugement — largement couvert par v0.4 déjà.
+- (Option ré-ouverte si une cible l'exige : la certif — le mapping fond→GCP sera alors rapide, par ton propre argument.)
+
+---
+
+## Correspondance avec tes 14 points
+1-2 (modèles, quand quoi, two-tower) → Phase 0 S1 + module B + v0.4
+3 (features, nettoyage) → ta force + v0.3 (point-in-time dans le pipeline)
+4/7 (tuning — même point) → Phase 0 S1 + DMLS training
+5 (calibration) → Phase 0 S1-S2
+6 (A/B dernier cri) → Phase 0 S2 + Kohavi
+8 (versioning MLflow/Vertex) → v0.2-v0.3 (MLflow réel) ; Vertex = mapping ultérieur
+10 (serving rapide) → v0.2 + playbook
+11 (architecture moderne, continuous learning) → v0.3, le cœur du portfolio
+12 (PyTorch, ML vs DL) → v0.4
+13 (RAG base) → module RAG map
+14 (agentique) → v0.5
+
+## Notes
+- Jalons datés : v0.2 (fin de sprint), v0.3 et v0.4 (à dater au retour). Un jalon = une date écrite, pas une intention.
+- Si une semaine saute : seul le sparring survit. 30 minutes. Toujours.
