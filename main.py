@@ -1,5 +1,7 @@
-from src.decision_systems_lab.functions import generate_booking_df, data_cont_leakage_detection, compute_iv_auc, make_split
+from src.decision_systems_lab.generators import generate_booking_df
+from src.decision_systems_lab.functions import data_cont_leakage_detection, compute_iv_auc, make_split
 import pandas as pd
+import importlib
 
 # generate data
 df_booking = generate_booking_df()
@@ -50,14 +52,14 @@ df_pl = pl.from_pandas(df_booking)
 
 df_pl = df_pl.with_columns(
     # time since the last click of the partner_id 
-    time_sice_last_click_pd=(
+    time_since_last_click_pd=(
         pl.col("click_ts") - pl.col("click_ts").shift(1).over("partner_id", order_by="click_ts")
     ).dt.total_seconds().fill_null(-1),
-    clicks_last_1h_pd = pl.col("click_ts").count().over("partner_id", order_by="click_ts").fill_null(-1),
-    time_since_last_click_pd=(
+    clicks_last_1h_pd = (pl.col("click_ts").cum_count().over("partner_id", order_by="click_ts")-1).fill_null(-1),
+    time_since_last_click_geo=(
         pl.col("click_ts") - pl.col("click_ts").shift(1).over("geo", order_by="click_ts")
     ).dt.total_seconds().fill_null(-1),
-    clicks_last_1h_geo = pl.col("click_ts").count().over("geo", order_by="click_ts").fill_null(-1)
+    clicks_last_1h_geo = (pl.col("click_ts").cum_count().over("geo", order_by="click_ts")-1).fill_null(-1)
 )
 
 df_booking = df_pl.to_pandas()
@@ -69,31 +71,67 @@ df_booking = df_booking.drop(columns=["minutes_on_ota_site", "booking_amount"])
 train, valid, test = make_split(df_booking, "click_ts", .7, .85)
 
 # trainlightgbm 
-import lightgbm as lgb 
+num_cols = ['price', 'lead_time_days',
+            'nights', 'past_click_30d', 'time_since_last_click_pd',
+            'clicks_last_1h_pd', 'time_since_last_click_geo', 'clicks_last_1h_geo', 'partner_rate']
+cat_cols = ["partner_id", "device","geo"]
 
-FEATS = ['partner_id', 'device', 'geo', 'price', 'lead_time_days',
-         'nights', 'past_click_30d', 'converted', 'time_sice_last_click_pd',
-         'clicks_last_1h_pd', 'time_since_last_click_pd', 'clicks_last_1h_geo']
-CAT = ["partener_id", "device","geo"]
-
-def prep(d, cats=None):
-    d = d[FEATS].copy()
-    for c in CAT:
-        d[c] = d[c].astype("category") if cats is None else pd.Categorical(d[c], categories=cats[c])
-    return d 
-Xtr = prep(train); cats = {c: Xtr[c].cat.categories for c in CAT}
-Xva, Xte = prep(valid, cats), prep(test, cats)
-
-# let's make the first training
-model = lgb.LGBMClassifier(n_estimators=400, learning_rate=.05, num_leaves=31, 
-                           min_child_samples=50, random_state=0, verbose=-1,
-                           class_weight="balanced")
-
-# 
-from sklearn.linear_model import LogisticRegression
-
-model_lgr = LogisticRegression(penalty="l2", C="1.0", solver="lbfgs", 
-                               max_iter=1000, random_state=42,)
+low_card_cols = ["geo", "device"]
+high_card_cols = ["partner_id"]
 
 
+Xtr, ytr = train.drop(columns=["converted"]).copy(), train.converted.copy()
+Xva, yva = valid.drop(columns=["converted"]).copy(), valid.converted.copy()
+Xte, yte = test.drop(columns=["converted"]).copy(), test.converted.copy()
+
+import src.decision_systems_lab.functions as dsl
+importlib.reload(dsl)
+train_lgbm = dsl.train_lgbm
+train_lgr = dsl.train_lgr
+evaluate = dsl.evaluate
+run_experiment = dsl.run_experiment
+
+from collections import namedtuple
+
+Splits = namedtuple("Splits", ["Xtr", "Ytr", "Xva", "yva", "Xte", "Yte"])
+
+cols = {
+    "num": num_cols, 
+    "cat": cat_cols,
+    "low_card": low_card_cols,
+    "high_card": high_card_cols
+}
+
+
+lgb_model = train_lgbm(Splits, cols,)
+lgr_model = train_lgr(Splits, cols,)
+
+
+# get the metrics of each model 
+lgb_metrics = evaluate(lgb_model, Xva, yva)
+lgr_metrics = evaluate(lgr_model, Xva, yva)
+
+# run experiment: this step should only leads us to run many experiments
+results = []
+
+results.append(
+    run_experiment(
+        name="lgb_baseline",
+        model_name="lgb",
+        Splits,
+        cols,
+    )
+)
+
+results.append(
+    run_experiment(
+            name="lgr_baseline",
+            model_name="lgr",
+            Splits,
+            cols,
+        )
+)
+
+df_results = pd.DataFrame(results)
+print(df_results)
 

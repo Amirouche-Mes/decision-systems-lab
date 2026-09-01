@@ -65,33 +65,67 @@ def generate_booking_df():
 # let's check the quality the univariate AUC in the data
 from sklearn.metrics import roc_auc_score
 
-def data_cont_leakage_detection(num_cols, df, target, target_rate, na_columns_serie): 
-    target = df.converted
+def data_cont_leakage_detection(num_cols, df, target_col="converted", target_rate=None, na_columns_serie=None): 
 
-    bound_null = (target_rate) * .25
+    target = df.converted
+    #base_rate = target_rate if target_rate is not None else target.mean()
+
+    def _verdict(null, not_null, base):
+        if null in [0, 1] or not_null in [0, 1]:
+           return  "True leakage"
+
+        lift_null = null/base if base>0 else 0
+        lift_non_null = not_null/base if base>0 else 0
+        if max(lift_null, lift_non_null) > 3:
+            return "Suspect leakage"
+        return "No leakage"
+
+    def null_pattern_leakage(df, col, target_series):
+        g = target_series.groupby(df[col].isna())[target]
+        rates, size = g.mean(), g.size()
+        if len(rates) < 2 or size.min() < 30:
+            return None 
+        r_null, r_not_null = rates.get(True, 0), rates.get(False, 0)
+        base = df["target"].mean()
+
+        lift = (
+            max(r_not_null, r_null) / base 
+            if base > 0 
+            else 0
+        )
+
+        return ({
+            "col": col,
+            "null rate": r_null,
+            "non null rate": r_not_null,
+            "lift": lift,
+            "verdict": _verdict(r_null, r_not_null, base)
+        })
 
     list_col_leakage_null = []
     list_col_leakage_auc = []
 
     for col in df.columns:
-        null_pct = na_columns_serie.get(col, 0.0)
-        print(f"{col}, {null_pct}")
-        if (1-target_rate) - bound_null <= null_pct/100.0 <= (1-target_rate) + bound_null:
+        if col == target_col:
+            continue
+
+        null_col_ana = null_pattern_leakage(df, col, target="converted")
+        if null_col_ana.get("verdict")=="True leakage":
             list_col_leakage_null.append(col)
+
         if col in num_cols:
-            if col == "converted":
-                continue
             col_data = df[col].rank(na_option='bottom')
             auc = roc_auc_score(target, col_data)
             print(f"{col:>22s} univariate AUC = {auc:.3f}")
+
             if 0 <= auc <= .1 or .9 <= auc <= 1:
                 print(
                     f"{col} is suspected to be filled at convergence time, AUC :{auc}"
                 )
                 list_col_leakage_auc.append(col)
     # leakage potentiel 
-    leakage_intersection = list(set(list_col_leakage_null) | set(list_col_leakage_auc))
-    return leakage_intersection
+    leakage_candidates = list(set(list_col_leakage_null) | set(list_col_leakage_auc))
+    return leakage_candidates
 
 # compute the information value to include all type of variables
 from sklearn.ensemble import HistGradientBoostingClassifier
@@ -132,15 +166,20 @@ def make_split(df, split_col, low_pct, high_pct):
 # train function lgbm 
 import lightgbm as lgb
 from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import OneHotEncoder, TargetEncoder, StandardScaler, OrdinalEncoder
+from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, TargetEncoder, StandardScaler, OrdinalEncoder
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 
 
 
-def train_lgbm(Xtr, ytr, Xva, yva, num_cols, cat_cols, **params):
-    Xtr_filtered = Xtr[cat_cols + num_cols].copy()
-    Xva_filtered = Xva[cat_cols + num_cols].copy()
+def train_lgbm(splits, cols, **params):
+    Xtr_filtered = splits.Xtr[cols["cat"] + cols["num"]].copy()
+    Xva_filtered = splits.Xva[cols["cat"] + cols["num"]].copy()
+
+    def cast_categories(df):
+        df_out = df.copy()
+        df_out[cols["cat"]] = df_out[cols["cat"]].astype("category")
+        return df_out
 
     default_params = {
         "n_estimators":400,
@@ -156,14 +195,10 @@ def train_lgbm(Xtr, ytr, Xva, yva, num_cols, cat_cols, **params):
     preprocessor = ColumnTransformer(
         transformers=[
             (
-                "cat",
-                OrdinalEncoder(
-                    handle_unknown="use_encoded_value",
-                    unknown_value=-1,
-                ),
-                cat_cols
+                "cat_caster",
+                FunctionTransformer(cast_categories, feature_names_in_=None),
             ),
-            ("num", "passthrough", num_cols),
+            ("num", "passthrough", cols["num"]),
         ]
     )
     lgb_model = lgb.LGBMClassifier(**params_f)
@@ -174,11 +209,11 @@ def train_lgbm(Xtr, ytr, Xva, yva, num_cols, cat_cols, **params):
             ("classifier", lgb_model)
         ]
     )
-    full_pipeline_lgbm.fit(Xtr_filtered, ytr)
+    full_pipeline_lgbm.fit(Xtr_filtered, splits.ytr)
     pa_val = full_pipeline_lgbm.predict_proba(Xva_filtered)[:,1]
     return full_pipeline_lgbm, pa_val
 
-def train_lgr(Xtr, ytr, Xva, yva, num_cols, low_card_cols, high_card_cols, **params):
+def train_lgr(splits, cols, **params):
 
     default_param = {
         "C":1.0,
@@ -193,17 +228,17 @@ def train_lgr(Xtr, ytr, Xva, yva, num_cols, low_card_cols, high_card_cols, **par
             (
                 "num",
                 StandardScaler(),
-                num_cols,
+                cols["num"],
             ),
             (
                 "low_card",
                 OneHotEncoder(handle_unknown="ignore"),
-                low_card_cols,
+                cols["low_card"],
             ),
             (
                 "high_card",
                 TargetEncoder(smooth="auto", cv=5),
-                high_card_cols
+                cols["high_card"]
             )
         ]
     )
@@ -217,8 +252,8 @@ def train_lgr(Xtr, ytr, Xva, yva, num_cols, low_card_cols, high_card_cols, **par
         ]
             
     )
-    full_pipeline_lgr.fit(Xtr, ytr)
-    pa_val = full_pipeline_lgr.predict_proba(Xva)[:, 1]
+    full_pipeline_lgr.fit(splits.Xtr, splits.ytr)
+    pa_val = full_pipeline_lgr.predict_proba(splits.Xva)[:, 1]
     return full_pipeline_lgr, pa_val
 
 from sklearn.metrics import roc_auc_score, brier_score_loss, log_loss
@@ -242,34 +277,26 @@ def evaluate(model, X, y):
 
 
 def run_experiment(name, model_name, 
-                   Xtr, 
-                   ytr,
-                   Xva, 
-                   yva, 
-                   Xte,
-                   yte,
-                   num_cols, 
-                   cat_cols, 
-                   low_card_cols,
-                   high_card_cols,
+                   splits,
+                   cols,
                    # changing params
                    model_params=None):
     model_params = model_params or {}
     
     if model_name == "lgb":
-        model, p_val = train_lgbm(Xtr, ytr, Xva, yva, num_cols, cat_cols, **model_params)
+        model, __ = train_lgbm(splits, cols, **model_params)
     elif model_name == "lgr":
-        model, p_val = train_lgr(Xtr, ytr, Xva, yva, num_cols, low_card_cols, high_card_cols, **model_params)
+        model, __ = train_lgr(splits, cols, **model_params)
         
     else:  
          raise ValueError(
                     f"Model {model_name} is not handled. Possible choices: 'lbg', 'lgr'"
                 )
-    metrics = evaluate(model, Xte, yte)
+    metrics = evaluate(model, splits.Xte, splits.yte)
 
     return {"experiment name": name, 
             "model_name": model_name, 
-            "metrics": metrics,
+            **metrics,
             **model_params}
 
 
