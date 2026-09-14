@@ -1,5 +1,7 @@
-# first function to generate the data
-import numpy as np, pandas as pd
+import pandas as pd 
+import numpy as np
+
+
 
 def generate_booking_df():
     """
@@ -49,8 +51,6 @@ def generate_booking_df():
     df.loc[rng.choice(n, 1500, replace=False), "geo"] = None
     df = pd.concat([df, df.sample(300, random_state=0)], ignore_index=True)
     df = df.sample(frac=1, random_state=7).reset_index(drop=True)
-    print(df.shape)
-    df.head()
     return df 
 
 # before the split make the proprocessing function that can help to see the data quality, cleaning
@@ -174,7 +174,6 @@ from sklearn.compose import ColumnTransformer
 
 def train_lgbm(splits, cols, **params):
     Xtr_filtered = splits.Xtr[cols["cat"] + cols["num"]].copy()
-    Xva_filtered = splits.Xva[cols["cat"] + cols["num"]].copy()
 
     def cast_categories(df):
         df_out = df.copy()
@@ -210,8 +209,7 @@ def train_lgbm(splits, cols, **params):
         ]
     )
     full_pipeline_lgbm.fit(Xtr_filtered, splits.ytr)
-    pa_val = full_pipeline_lgbm.predict_proba(Xva_filtered)[:,1]
-    return full_pipeline_lgbm, pa_val
+    return full_pipeline_lgbm
 
 def train_lgr(splits, cols, **params):
 
@@ -253,8 +251,7 @@ def train_lgr(splits, cols, **params):
             
     )
     full_pipeline_lgr.fit(splits.Xtr, splits.ytr)
-    pa_val = full_pipeline_lgr.predict_proba(splits.Xva)[:, 1]
-    return full_pipeline_lgr, pa_val
+    return full_pipeline_lgr
 
 from sklearn.metrics import roc_auc_score, brier_score_loss, log_loss
 
@@ -284,9 +281,9 @@ def run_experiment(name, model_name,
     model_params = model_params or {}
     
     if model_name == "lgb":
-        model, __ = train_lgbm(splits, cols, **model_params)
+        model = train_lgbm(splits, cols, **model_params)
     elif model_name == "lgr":
-        model, __ = train_lgr(splits, cols, **model_params)
+        model = train_lgr(splits, cols, **model_params)
         
     else:  
          raise ValueError(
