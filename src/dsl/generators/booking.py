@@ -3,7 +3,7 @@ import pandas as pd
 
 def generate_booking_df(
     n_samples: int = 50_000, seed: int = 42
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, dict]:
 
     """Generates a synthetic e-commerce booking dataset. 
     Simulate clickstream data, user attributes, price sensitivities, and non-linear convertion probabilities
@@ -38,8 +38,25 @@ def generate_booking_df(
 
     #1. Temporal and partner attributes
     start_date = pd.Timestamp("2026-01-01")
-    click_ts = start_date + pd.to_timedelta(
-        rng.uniform(0, 180, n_samples), unit="D"
+
+    day_offset = rng.integers(0, 180, n_samples)
+
+    # hours simulated with a day profil
+    hour_weights = np.array([
+        1, 1, 1, 1, 1, 2,      # 0-5h : night
+        3, 5, 7, 8, 8, 8,      # 6-11h : morning
+        9, 8, 7, 7, 8, 9,      # 12-17h : after noon
+        11, 13, 14, 12, 8, 4,  # 18-23h : pic at the evening 
+    ], dtype=float)
+
+    hour = rng.choice(24, size=n_samples, p=hour_weights / hour_weights.sum())
+    minute = rng.uniform(0, 60, n_samples)
+
+    click_ts = (
+        start_date
+        + pd.to_timedelta(day_offset, unit="D")
+        + pd.to_timedelta(hour, unit="h")
+        + pd.to_timedelta(minute, unit="m")
     )
 
     partner_ids = [f"P{i:03d}" for i in range(60)]
@@ -73,7 +90,8 @@ def generate_booking_df(
         - 0.022 * lead_time_days
         + .25 * (geo == "CA")
         + partner_effects 
-        + .15 * np.sin(click_ts.dayofyear / 58.0)
+        + .15 * np.sin(click_ts.dayofyear / 58.0) # saisonality effect
+        + .3 * np.sin(2 * np.pi * (hour - 15) / 24) # hour effect
     )
 
     conversion_prob = 1 / (1 + np.exp(-logit))
@@ -91,7 +109,15 @@ def generate_booking_df(
     df["booking_amount"] = np.where(df.converted == 1, df.price*df.nights*rng.uniform(.9, 1.1, n_samples), np.nan)
     df["minutes_on_ots_site"] = np.where(df.converted == 1, rng.gamma(3, 4, n_samples), rng.gamma(1.2, 2, n_samples))
     df.loc[rng.choice(n_samples, 1500, replace=False), "geo"] = None
-    df = pd.concat([df, df.sample(300, random_state=0)], ignore_index=True)
-    df = df.sample(frac=1, random_state=7).reset_index(drop=True)
+    df = pd.concat([df, df.sample(300, random_state=seed)], ignore_index=True)
+    df = df.sample(frac=1, random_state=seed).reset_index(drop=True)
 
-    return df
+    schema =  {
+        "num": ["price", "booking_amount", "minutes_on_ots_site", "nights", "past_click_30d", "lead_time_days"],
+        "cat": ["device", "geo"],
+        "ids": ["partner_id"],
+        "target": "converted",
+        "timestamp": "click_ts",
+    }
+
+    return df, schema

@@ -2,7 +2,7 @@ import logging
 from typing import Any
 
 from dsl.models.classification import DataSplits, BUILDERS
-from dsl.evaluation import evaluate_binary_calssifier
+from dsl.evaluation import evaluate_binary_classifier
 
 logger = logging.getLogger(__name__)
 
@@ -58,13 +58,13 @@ def run_expirement(
     }
 
     if hasattr(splits, "Xva") and splits.Xva is not None and len(splits.Xva) > 0:
-        val_metrics = evaluate_binary_calssifier(
+        val_metrics = evaluate_binary_classifier(
             model=model, X=splits.Xva, y=splits.yva, dataset_name="valid"
         )
         results.update({f"val_{k}": v for k, v in val_metrics.items()})
 
     if include_test and splits.Xte is not None and len(splits.Xte) > 0:
-            test_metrics = evaluate_binary_calssifier(
+            test_metrics = evaluate_binary_classifier(
                 model=model, X=splits.Xte, y=splits.yte, dataset_name="test"
             )
             results.update({f"test_{k}": v for k, v in test_metrics.items()})

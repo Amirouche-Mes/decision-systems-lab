@@ -1,0 +1,10 @@
+data:
+  n_samples: 50_000
+  seed: 42
+model:
+  name: lgbm
+  params:
+    num_leaves: 31
+experiment:
+  name: baseline_lgbm
+  include_test: True

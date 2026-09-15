@@ -1,15 +1,16 @@
 import logging
 import pandas as pd
+from src.dsl.models.classification import DataSplits
 
 logger = logging.getLogger(__name__)
 
 def temporal_split(
         df: pd.DataFrame,
-        split_col: str,
-        low_pct: float,
-        high_pct: float,
-        target_col: str = "converted",
-    ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+        schema: dict,
+        split_col: str | None = None,
+        low_pct: float = 0.7,
+        high_pct: float = 0.85,
+    ) -> DataSplits:
     """ Separate a DataFrame in three datasets (train, valid, test) using a temporal base column.
 
         Args:
@@ -17,7 +18,6 @@ def temporal_split(
             split_col: Temporal/numeric column name to use in the split
             low_pct: low percentil for the limit train valid sets.
             high_pct: high percentil for the limit valid test sets.
-            target_col: target column name to calculate the repartition.
 
         Returns:
             A tuple (train, valid, test) of dataframes.
@@ -27,6 +27,9 @@ def temporal_split(
             KeyError: if 'split_col' or 'target_col' aren't in the DF.
     
     """
+    target_col = schema["target"]
+    feature_cols = schema["ids"] + schema["num"] + schema["cat"]
+    split_col = split_col or schema["timestamp"]
     if df.empty:
         raise ValueError("The entry DF for the temporal split is empty.")
 
@@ -35,6 +38,7 @@ def temporal_split(
             f" The percentiles must respect : 0 <= low_pct < high_pct <= 1."
             f" Received: low_pct={low_pct}, high_pct={high_pct}"
         )
+
 
     for col in (split_col, target_col):
         if col not in df.columns:
@@ -66,4 +70,8 @@ def temporal_split(
             max_date,
             rate,
         )
-    return train, valid, test
+    return DataSplits(
+        Xtr=train[feature_cols], ytr=train[target_col],
+        Xva=valid[feature_cols], yva=valid[target_col],
+        Xte=test[feature_cols], yte=test[target_col],
+    )

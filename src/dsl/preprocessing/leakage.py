@@ -11,10 +11,11 @@ logger = logging.getLogger(__name__)
 def detect_data_leakage(
         df: pd.DataFrame,
         num_cols: list[str],
+        feature_cols: list[str],
         target_col: str = "converted",
         auc_threshold: float = 0.40,
         lift_threshold: float = 3.0,
-        min_sample_size: int = 30,
+        min_sample_size: int = 100,
     ) -> list[str]:
     """ Identifies candidates features showing signs of target/ data leakage.
 
@@ -44,16 +45,14 @@ def detect_data_leakage(
     target = df[target_col]
     base_rate = target.mean()
 
-    if base_rate == 0:
-        logger.warning("Global target rate is 0. Data leakage detection aborder")
+    if base_rate in (0, 1):
+        logger.warning("Target has a single class (rate=%.2f). Leakage detection aborted.", base_rate)
         return []
 
     suspect_null_cols: set[str] = set()
     suspect_auc_cols: set[str] = set()
 
-    for col in df.columns:
-        if col == target_col:
-            continue
+    for col in feature_cols:
 
         # 1. Evaluate missingness patterns for potential leakage
         null_mask = df[col].isna()
@@ -65,19 +64,19 @@ def detect_data_leakage(
             r_null = rates.get(True, 0.0)
             r_not_null = rates.get(False, 0.0)
 
-            # Flag perfect deterministic leakage (0% or 100% convertion)
-            is_deterministic_leak = (r_null in (0, 1)) or (r_not_null in (0, 1))
-
             lift_null = r_null / base_rate
             lift_not_null = r_not_null / base_rate 
             max_lift = max(lift_null, lift_not_null)
+            min_lift = min(lift_null, lift_not_null)
 
-            if is_deterministic_leak or max_lift > lift_threshold:
+            is_deterministic_leak = (r_null in (0, 1)) or (r_not_null in (0, 1))
+            is_extreme_lift = max_lift > lift_threshold or min_lift < 1 / lift_threshold
+
+            if is_deterministic_leak or is_extreme_lift:
                 logger.warning(
-                    "Null pattern leakage detected | Feature: %s | Max Lift: %.2f",
-                    col,
-                    max_lift,
-                )
+                        "Null pattern leakage | %s | lifts: null=%.2f, not_null=%.2f",
+                        col, lift_null, lift_not_null,
+                    )
                 suspect_null_cols.add(col)
 
         # 2. Evaluate univariate predictive performance (AUC) for numerical features
@@ -168,3 +167,33 @@ def compute_iv_auc(
     auc = float(roc_auc_score(df[target_col], out_of_fold_probs))
 
     return pd.Series({"IV": iv, "AUC": auc})
+
+def leakage_audit(
+        df: pd.DataFrame,
+        schema: dict,
+        iv_threshold: float = 0.5,
+        cat_auc_threshold: float = 0.75,
+) -> dict:
+    """Runs all leakage checks and returns a schema stripped of suspect features."""
+    target_col = schema["target"]
+
+    suspects = set(detect_data_leakage(
+        df,
+        num_cols=schema["num"],
+        feature_cols=schema["num"] + schema["cat"], 
+        target_col=target_col,
+    ))
+
+    for col in schema["cat"]:
+        metrics = compute_iv_auc(df, cat_col=col, target_col=target_col)
+        if metrics["IV"] > iv_threshold or metrics["AUC"] > cat_auc_threshold:
+            logger.warning("IV/AUC leakage | %s | IV=%.3f AUC=%.3f", col, metrics["IV"], metrics["AUC"])
+            suspects.add(col)
+
+    clean = {
+        **schema,
+        "num": [c for c in schema["num"] if c not in suspects],
+        "cat": [c for c in schema["cat"] if c not in suspects],
+    }
+    logger.info("Leakage audit removed %d features: %s", len(suspects), sorted(suspects))
+    return clean
