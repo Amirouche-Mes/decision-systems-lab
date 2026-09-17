@@ -11,3 +11,4 @@ wheels/
 mlruns/
 mlflow.db
 payload.json
+notes/
