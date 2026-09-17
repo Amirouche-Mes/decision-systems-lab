@@ -51,27 +51,40 @@ def run_expirement(
     # 1. Model training Dispatch
     model = builder(splits=splits, cat_cols=cat_cols, num_cols=num_cols, hyperparams=model_params)
 
-    # 2. Evaluation on Validation and Test Splits
-    results: dict[str, Any] = {
-        "experiment_name": name,
-        "model_name": model_name,
-    }
+    # 2. Collect Metrics
+    metrics: dict[str, float] = {}
 
     if hasattr(splits, "Xva") and splits.Xva is not None and len(splits.Xva) > 0:
         val_metrics = evaluate_binary_classifier(
             model=model, X=splits.Xva, y=splits.yva, dataset_name="valid"
         )
-        results.update({f"val_{k}": v for k, v in val_metrics.items()})
+        metrics.update({f"val_{k}": v for k, v in val_metrics.items()})
 
     if include_test and splits.Xte is not None and len(splits.Xte) > 0:
             test_metrics = evaluate_binary_classifier(
                 model=model, X=splits.Xte, y=splits.yte, dataset_name="test"
             )
-            results.update({f"test_{k}": v for k, v in test_metrics.items()})
+            metrics.update({f"test_{k}": v for k, v in test_metrics.items()})
 
-    results["hyperparameters"] = model_params
+    # 3. Consolidate Parameters and Tags
+    params = {
+         **model_params,
+         "n_features_num": len(num_cols),
+         "n_features_cat": len(cat_cols),
+         "total_features": total_features,
+    }
+
+    tags = {
+         "experiment_name": name,
+         "model_type": model_name,
+    }
 
     logger.info("Completed experiment '%s' successfully.", name)
-    return results
+    return {
+         "tags": tags,
+         "params": params,
+         "metrics": metrics,
+         "model": model,
+    }
 
     

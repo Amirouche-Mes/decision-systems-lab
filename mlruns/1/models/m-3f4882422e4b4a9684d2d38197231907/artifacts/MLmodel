@@ -1,0 +1,43 @@
+artifact_path: /Users/Admin/Desktop/Perso/Projects/smle_sprint/step0/decision-systems-lab/mlruns/1/models/m-3f4882422e4b4a9684d2d38197231907/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.12.0
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.9.0
+    skops_trusted_types: null
+is_signature_from_type_hint: false
+mlflow_version: 3.16.0
+model_id: m-3f4882422e4b4a9684d2d38197231907
+model_size_bytes: 1382266
+model_uuid: m-3f4882422e4b4a9684d2d38197231907
+prompts: null
+run_id: 6c142d54c72b429888c9cbafb488e334
+saved_input_example_info:
+  artifact_path: input_example.json
+  pandas_orient: split
+  serving_input_path: serving_input_example.json
+  type: dataframe
+signature:
+  inputs: '[{"type": "string", "name": "partner_id", "required": true}, {"type": "double",
+    "name": "price", "required": true}, {"type": "long", "name": "nights", "required":
+    true}, {"type": "long", "name": "past_click_30d", "required": true}, {"type":
+    "long", "name": "lead_time_days", "required": true}, {"type": "double", "name":
+    "partner_rate", "required": true}, {"type": "double", "name": "time_since_last_click_partner_id",
+    "required": true}, {"type": "double", "name": "time_since_last_click_geo", "required":
+    true}, {"type": "double", "name": "price_ratio_geo", "required": true}, {"type":
+    "double", "name": "hour_sin", "required": true}, {"type": "double", "name": "hour_cos",
+    "required": true}, {"type": "string", "name": "device", "required": true}, {"type":
+    "string", "name": "geo", "required": true}]'
+  outputs: '[{"type": "long", "required": true}]'
+  params: null
+type_hint_from_example: false
+utc_time_created: '2026-09-17 19:31:09.335331'

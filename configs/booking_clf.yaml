@@ -1,5 +1,5 @@
 data:
-  n_samples: 50_000
+  n_samples: 50000
   seed: 42
 model:
   name: lgbm
@@ -7,4 +7,6 @@ model:
     num_leaves: 31
 experiment:
   name: baseline_lgbm
-  include_test: True
+  include_test: False
+tracking:
+  name: booking_conversion_clf

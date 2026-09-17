@@ -1,0 +1,9 @@
+services:
+  serving:
+    build: .                 # <- le lien : compose sait construire l'image depuis ./Dockerfile
+    image: dsl-serving
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./mlflow.db:/app/mlflow.db
+      - ./mlruns:/Users/Admin/Desktop/Perso/Projects/smle_sprint/step0/decision-systems-lab/mlruns

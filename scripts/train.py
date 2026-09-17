@@ -1,12 +1,14 @@
 import logging
 import sys
 import yaml 
+import os
 
-from src.dsl.generators.booking import generate_booking_df
-from src.dsl.preprocessing.features import build_booking_features
-from src.dsl.preprocessing.leakage import leakage_audit
-from src.dsl.preprocessing.splits import temporal_split
-from src.dsl.run_expirement import run_expirement
+from dsl.generators.booking import generate_booking_df
+from dsl.preprocessing.features import build_booking_features
+from dsl.preprocessing.leakage import leakage_audit
+from dsl.preprocessing.splits import temporal_split
+#from src.dsl.run_expirement import run_expirement
+from dsl.tracking.registry import log_experiment
 
 logging.basicConfig(
     level=logging.INFO,
@@ -15,8 +17,10 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-cfg = yaml.safe_load(open("configs/booking_clf.yaml"))
+cfg_path = sys.argv[1] if len(sys.argv) > 1 else "configs/booking_clf.yaml"
+cfg = yaml.safe_load(open(cfg_path))
 
+tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
 
 # generate the data
 logger.info("step0: generate booking data")
@@ -29,28 +33,25 @@ logger.info("step1: feature engineering - adding features")
 df, schema = build_booking_features(df, schema)
 
 logger.info("step1: feature engineering - data leakage")
-clean_schema = leakage_audit(df, schema)
+schema = leakage_audit(df, schema)
 
-used_cols = (clean_schema["num"] + clean_schema["cat"] + schema["ids"] + [clean_schema["target"], schema["timestamp"]])
+used_cols = (schema["num"] + schema["cat"] + schema["ids"] + [schema["target"], schema["timestamp"]])
 df = df[used_cols]
 
 logger.info("step2: split data")
-splits = temporal_split(df, clean_schema, clean_schema["timestamp"], .7, .85)
-
-logger.info("step3: train the ML model experiment")
-expr_results = run_expirement(
-                name=cfg["experiment"]["name"],
-                model_name=cfg["model"]["name"],
-                splits=splits,
-                feature_cols=clean_schema,
-                model_params=cfg["model"]["params"],
-                include_test=cfg["experiment"]["include_test"],
-    )
+splits = temporal_split(df, schema, schema["timestamp"], .7, .85)
 
 
+logger.info("step3: run the ML training experiment")
 
+for model_name in ["lgbm", "lgr"]:
+    run_cfg = {
+        **cfg,
+        "model": {"name": model_name, "params": cfg["model"]["params"] if model_name == cfg["model"]["name"] else {}},
+        "experiment": {**cfg["experiment"], "name": f"baseline_{model_name}"},
+    }
+    run_id = log_experiment(run_cfg, splits, schema, tracking_uri)
 
-
-
-
-
+# test the serving.
+#import json
+#json.dump(splits.Xva.head(10).to_dict(orient="records"), open("payload.json", "w"))

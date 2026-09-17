@@ -1,0 +1,9 @@
+.pytest_cache
+**/__pycache__
+*.egg-info
+.venv
+mlflow.db
+notes
+tests
+.gitignore
+mlruns/

@@ -1,6 +1,6 @@
 import logging
 import pandas as pd
-from src.dsl.models.classification import DataSplits
+from dsl.models.classification import DataSplits
 
 logger = logging.getLogger(__name__)
 
