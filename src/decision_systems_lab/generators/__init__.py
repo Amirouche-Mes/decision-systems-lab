@@ -1,1 +1,0 @@
-from .booking_generator import generate_booking_df
