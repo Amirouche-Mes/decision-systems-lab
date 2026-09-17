@@ -10,3 +10,4 @@ wheels/
 .venv
 mlruns/
 mlflow.db
+payload.json
